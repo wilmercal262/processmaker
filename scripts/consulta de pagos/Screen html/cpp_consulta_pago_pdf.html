@@ -4,7 +4,9 @@
             <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Numero de Factura</th>
             <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Fecha de Factura</th>
             <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Orden de Compra/Contrato</th>
-            <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Monto en $us</th>
+            <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Tipo Orden</th>
+            <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Monto Pago</th>
+            <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Moneda Pago</th>
             <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Fecha de Vencimiento</th>
             <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Fecha de Pago</th>
             <th style="border:1px solid #000; padding:6px 4px; background-color:#f0f0f0; text-align:center;">Estado</th>
@@ -16,7 +18,9 @@
             <td>{{nroFactura}}</td>
             <td>{{fechaFactura}}</td>
             <td>{{ordenCompra}}</td>
-            <td class="monto">$ {{importe}}</td>
+            <td>{{tipoOrden}}</td>
+            <td class="monto">{{importe}}</td>
+            <td>{{monedaPago}}</td>
             <td>{{fechaVencimiento}}</td>
             <td>{{fechaPago}}</td>
             <td class="{{#esPagado}}estado-pagado{{/esPagado}}{{^esPagado}}estado-pendiente{{/esPagado}}">
