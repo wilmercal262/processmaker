@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Formulario offline — ProcessMaker</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --card: #fff;
+      --text: #1c2430;
+      --muted: #5c6778;
+      --line: #d8dee8;
+      --accent: #0f6b4c;
+      --accent-ink: #fff;
+      --warn: #8a5a00;
+      --warn-bg: #fff6e0;
+      --ok: #0f6b4c;
+      --ok-bg: #e7f6ef;
+      --err: #8d1d1d;
+      --err-bg: #fdecec;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.45 "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    h1 { font-size: 1.45rem; margin: 0 0 4px; }
+    h2 { font-size: 1.05rem; margin: 0 0 12px; }
+    p.lead { margin: 0; color: var(--muted); }
+    .status {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .status.online { background: var(--ok-bg); color: var(--ok); }
+    .status.offline { background: var(--warn-bg); color: var(--warn); }
+    section, details {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    summary { cursor: pointer; font-weight: 650; }
+    label { display: block; font-size: 0.92rem; margin-bottom: 12px; }
+    label span, .field-head { display: block; margin-bottom: 4px; font-weight: 600; }
+    input, textarea, select, button {
+      font: inherit;
+    }
+    input[type="text"], input[type="url"], input[type="password"],
+    input[type="number"], input[type="date"], textarea, select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+    textarea { min-height: 88px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr 140px auto; gap: 8px; align-items: end; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 14px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      cursor: pointer;
+    }
+    button.secondary { background: #e8edf3; color: var(--text); }
+    button.danger { background: #f3d6d6; color: var(--err); }
+    button:disabled { opacity: 0.55; cursor: default; }
+    .hint { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
+    .queue-item {
+      border-top: 1px solid var(--line);
+      padding: 10px 0;
+    }
+    .queue-item:first-child { border-top: 0; padding-top: 0; }
+    .queue-item pre {
+      margin: 6px 0;
+      white-space: pre-wrap;
+      font-size: 0.82rem;
+      background: var(--bg);
+      padding: 8px;
+      border-radius: 8px;
+    }
+    .msg { margin-top: 10px; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; }
+    .msg.ok { background: var(--ok-bg); color: var(--ok); }
+    .msg.err { background: var(--err-bg); color: var(--err); }
+    code { font-size: 0.88em; }
+    @media (max-width: 640px) {
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Formulario offline</h1>
+      <p class="lead">Los datos quedan en este navegador. Al haber internet se envían a ProcessMaker como un caso nuevo.</p>
+      <div id="net" class="status offline">Sin conexión</div>
+    </header>
+
+    <details>
+      <summary>Conexión a ProcessMaker</summary>
+      <form id="settings" style="margin-top: 14px;">
+        <label>
+          <span>URL del servidor</span>
+          <input id="baseUrl" name="baseUrl" type="url" placeholder="https://mi-servidor.processmaker.net" required>
+        </label>
+        <label>
+          <span>Token de acceso</span>
+          <input id="token" name="token" type="password" autocomplete="off" placeholder="Bearer token" required>
+        </label>
+        <label>
+          <span>ID del proceso</span>
+          <input id="processId" name="processId" type="number" min="1" placeholder="2" required>
+        </label>
+        <label>
+          <span>Nodo del evento de inicio</span>
+          <input id="event" name="event" type="text" value="node_1" required>
+        </label>
+        <div class="actions">
+          <button type="submit">Guardar conexión</button>
+          <button type="button" class="secondary" id="testConnection">Probar conexión</button>
+        </div>
+        <p class="hint">El ID del proceso está en la URL del modelador. El nodo es el id del evento de inicio en el BPMN, por ejemplo <code>node_1</code>. El <code>name</code> de cada campo debe ser el nombre de la variable en la pantalla.</p>
+        <div id="settingsMsg"></div>
+      </form>
+    </details>
+
+    <section>
+      <h2>Campos</h2>
+      <p class="hint">La variable es el nombre que ProcessMaker guarda en el caso. Puedes cambiarla para que coincida con tu pantalla.</p>
+      <div class="row" style="margin-top: 12px;">
+        <label>
+          <span>Etiqueta</span>
+          <input id="newLabel" type="text" placeholder="Código JDE">
+        </label>
+        <label>
+          <span>Variable</span>
+          <input id="newName" type="text" placeholder="jde_code">
+        </label>
+        <label>
+          <span>Tipo</span>
+          <select id="newType">
+            <option value="text">Texto</option>
+            <option value="number">Número</option>
+            <option value="date">Fecha</option>
+            <option value="textarea">Texto largo</option>
+          </select>
+        </label>
+        <button type="button" id="addField">Agregar</button>
+      </div>
+      <div id="fieldList"></div>
+    </section>
+
+    <section>
+      <h2>Datos del caso</h2>
+      <form id="caso"></form>
+      <div class="actions">
+        <button type="button" id="saveCase">Guardar y enviar</button>
+      </div>
+      <div id="caseMsg"></div>
+    </section>
+
+    <section>
+      <h2>Pendientes de envío</h2>
+      <div id="queue"></div>
+      <div class="actions">
+        <button type="button" class="secondary" id="syncNow">Enviar pendientes</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const KEYS = {
+      settings: "pm-offline-settings",
+      fields: "pm-offline-fields",
+      queue: "pm-offline-queue",
+      draft: "pm-offline-draft"
+    };
+
+    const defaultFields = [
+      { label: "Código JDE", name: "jde_code", type: "text" },
+      { label: "Detalle", name: "detalle", type: "textarea" }
+    ];
+
+    const $ = (id) => document.getElementById(id);
+
+    function load(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    function save(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function settings() {
+      return {
+        baseUrl: $("baseUrl").value.trim().replace(/\/+$/, ""),
+        token: $("token").value.trim(),
+        processId: $("processId").value.trim(),
+        event: $("event").value.trim()
+      };
+    }
+
+    function fields() {
+      return load(KEYS.fields, defaultFields);
+    }
+
+    function queue() {
+      return load(KEYS.queue, []);
+    }
+
+    function setMessage(el, text, kind) {
+      el.className = "msg " + kind;
+      el.textContent = text;
+    }
+
+    function paintNet() {
+      const el = $("net");
+      const online = navigator.onLine;
+      el.textContent = online ? "Con internet" : "Sin conexión";
+      el.className = "status " + (online ? "online" : "offline");
+    }
+
+    function renderFields() {
+      const list = $("fieldList");
+      const items = fields();
+      list.innerHTML = "";
+      items.forEach((field, index) => {
+        const row = document.createElement("div");
+        row.className = "queue-item";
+        row.innerHTML = "<strong></strong> <code></code>";
+        row.querySelector("strong").textContent = field.label;
+        row.querySelector("code").textContent = field.name + " (" + field.type + ")";
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "danger";
+        remove.textContent = "Quitar";
+        remove.style.marginLeft = "8px";
+        remove.addEventListener("click", () => {
+          const next = fields().filter((_, i) => i !== index);
+          save(KEYS.fields, next);
+          renderFields();
+          renderForm();
+        });
+        row.appendChild(remove);
+        list.appendChild(row);
+      });
+    }
+
+    function renderForm() {
+      const form = $("caso");
+      const draft = load(KEYS.draft, {});
+      form.innerHTML = "";
+      fields().forEach((field) => {
+        const label = document.createElement("label");
+        const title = document.createElement("span");
+        title.textContent = field.label;
+        label.appendChild(title);
+        const control = field.type === "textarea" ? document.createElement("textarea") : document.createElement("input");
+        if (field.type !== "textarea") control.type = field.type;
+        control.name = field.name;
+        control.value = draft[field.name] || "";
+        control.addEventListener("input", saveDraft);
+        label.appendChild(control);
+        form.appendChild(label);
+      });
+    }
+
+    function saveDraft() {
+      save(KEYS.draft, readForm());
+    }
+
+    function readForm() {
+      const data = {};
+      $("caso").querySelectorAll("[name]").forEach((el) => {
+        data[el.name] = el.value;
+      });
+      return data;
+    }
+
+    function renderQueue() {
+      const box = $("queue");
+      const items = queue();
+      box.innerHTML = "";
+      if (!items.length) {
+        box.innerHTML = '<p class="hint">No hay envíos pendientes.</p>';
+        return;
+      }
+      items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "queue-item";
+        const title = document.createElement("div");
+        title.textContent = new Date(item.createdAt).toLocaleString() + " — " + (item.lastError ? "error" : "pendiente");
+        const pre = document.createElement("pre");
+        pre.textContent = JSON.stringify(item.payload, null, 2);
+        row.appendChild(title);
+        row.appendChild(pre);
+        if (item.lastError) {
+          const err = document.createElement("div");
+          err.className = "msg err";
+          err.textContent = item.lastError;
+          row.appendChild(err);
+        }
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "secondary";
+        remove.textContent = "Descartar";
+        remove.addEventListener("click", () => {
+          save(KEYS.queue, queue().filter((entry) => entry.id !== item.id));
+          renderQueue();
+        });
+        row.appendChild(remove);
+        box.appendChild(row);
+      });
+    }
+
+    function enqueue(payload) {
+      const items = queue();
+      items.push({
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        payload,
+        lastError: ""
+      });
+      save(KEYS.queue, items);
+      renderQueue();
+    }
+
+    async function sendItem(item, config) {
+      const url = config.baseUrl + "/api/1.0/process_events/" + encodeURIComponent(config.processId) + "?event=" + encodeURIComponent(config.event);
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + config.token
+        },
+        body: JSON.stringify(item.payload)
+      });
+      if (!response.ok) {
+        let detail = "HTTP " + response.status;
+        try {
+          const body = await response.json();
+          detail = body.message || body.error || detail;
+        } catch (error) {
+          detail = detail + " " + (await response.text()).slice(0, 180);
+        }
+        throw new Error(detail);
+      }
+      return response.json();
+    }
+
+    async function syncPending() {
+      paintNet();
+      if (!navigator.onLine) return;
+      const config = settings();
+      if (!config.baseUrl || !config.token || !config.processId || !config.event) return;
+
+      const pending = queue();
+      const remain = [];
+      for (const item of pending) {
+        try {
+          await sendItem(item, config);
+        } catch (error) {
+          remain.push({ ...item, lastError: error.message || "No se pudo enviar" });
+        }
+      }
+      save(KEYS.queue, remain);
+      renderQueue();
+      if (pending.length && !remain.length) {
+        setMessage($("caseMsg"), "Los casos pendientes se crearon en ProcessMaker.", "ok");
+      }
+    }
+
+    $("settings").addEventListener("submit", (event) => {
+      event.preventDefault();
+      save(KEYS.settings, settings());
+      setMessage($("settingsMsg"), "Conexión guardada en este navegador.", "ok");
+    });
+
+    $("testConnection").addEventListener("click", async () => {
+      const config = settings();
+      save(KEYS.settings, config);
+      if (!navigator.onLine) {
+        setMessage($("settingsMsg"), "Sin conexión. La prueba queda para cuando haya internet.", "err");
+        return;
+      }
+      try {
+        const response = await fetch(config.baseUrl + "/api/1.0/processes/" + encodeURIComponent(config.processId), {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": "Bearer " + config.token
+          }
+        });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const body = await response.json();
+        setMessage($("settingsMsg"), "Conectado al proceso " + (body.name || config.processId) + ".", "ok");
+      } catch (error) {
+        const cors = error.message === "Failed to fetch";
+        setMessage(
+          $("settingsMsg"),
+          cors
+            ? "El navegador bloqueó la llamada. Sirve esta página desde un origen permitido en el CORS de ProcessMaker."
+            : (error.message || "No se pudo conectar"),
+          "err"
+        );
+      }
+    });
+
+    $("addField").addEventListener("click", () => {
+      const label = $("newLabel").value.trim();
+      const name = $("newName").value.trim();
+      const type = $("newType").value;
+      if (!label || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        setMessage($("caseMsg"), "La variable debe empezar con letra o _ y usar solo letras, números y _.", "err");
+        return;
+      }
+      const items = fields();
+      if (items.some((field) => field.name === name)) {
+        setMessage($("caseMsg"), "Esa variable ya está en el formulario.", "err");
+        return;
+      }
+      items.push({ label, name, type });
+      save(KEYS.fields, items);
+      $("newLabel").value = "";
+      $("newName").value = "";
+      renderFields();
+      renderForm();
+    });
+
+    $("saveCase").addEventListener("click", async () => {
+      const payload = readForm();
+      const filled = Object.values(payload).some((value) => String(value).trim() !== "");
+      if (!filled) {
+        setMessage($("caseMsg"), "Completa al menos un campo.", "err");
+        return;
+      }
+      enqueue(payload);
+      save(KEYS.draft, {});
+      renderForm();
+      if (!navigator.onLine) {
+        setMessage($("caseMsg"), "Guardado en este navegador. Se enviará al volver internet.", "ok");
+        return;
+      }
+      setMessage($("caseMsg"), "Guardado. Enviando a ProcessMaker…", "ok");
+      await syncPending();
+    });
+
+    $("syncNow").addEventListener("click", syncPending);
+    window.addEventListener("online", syncPending);
+    window.addEventListener("offline", paintNet);
+
+    const stored = load(KEYS.settings, null);
+    if (stored) {
+      $("baseUrl").value = stored.baseUrl || "";
+      $("token").value = stored.token || "";
+      $("processId").value = stored.processId || "";
+      $("event").value = stored.event || "node_1";
+    }
+    if (!localStorage.getItem(KEYS.fields)) save(KEYS.fields, defaultFields);
+    paintNet();
+    renderFields();
+    renderForm();
+    renderQueue();
+    syncPending();
+  </script>
+</body>
+</html>
